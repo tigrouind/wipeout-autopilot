@@ -18,13 +18,14 @@ If you change the track, you have to stop and re-run the script each time.
 ### Known bugs / limitations :
 
 - It only steers the ship left or right. 
-- It does not accelerate/brake (you have to do it yourself)
-- It does not use air brakes 
-- It does not use weapons
-- It does not adjust pitch (using up down buttons)
-- It does not avoid other AI ships
+- It does not :
+  - accelerate/brake (you have to do it yourself)
+  - use air brakes 
+  - use weapons
+  - adjust ship pitch (using up down buttons)
+  - avoid other AI ships
 - Because of some limitations (eg: no air brakes), it cannot handle sharp turns at high speed.
-- At very low speeds (eg : < 50 mph) it might anticipate turns too early and hit the track.
+- At low speeds (eg : < 50 mph) it might anticipate turns too early and hit the track.
 - It only works with Feisar team. The script need to know the position of the ship, and the memory address is different for each team.
 - It has only been tested with Wipeout 2097 PAL version. Wether it work with other games versions is unknown.
 
