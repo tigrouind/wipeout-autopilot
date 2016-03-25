@@ -21,7 +21,7 @@ end
 
 function getTrackSections()
 
-	--look in whole PSX ram for a track section pattern
+	--look in PSX ram for a track section pattern
 	local sectionsAddr = 0x00000000
 	for readposition = 0x00000000, 0x001fffff, 4 do
 		if (memory.readdwordunsigned(readposition) == 0xffffffff 
@@ -37,14 +37,14 @@ function getTrackSections()
 	--read all track sections and store it in array
 	local readposition = sectionsAddr
 	local track = {}
-	local i = 1
+	local i = 0
 	
 	repeat
 		section = {}
 		section.x = memory.readdwordsigned(readposition + 12)
 		section.y = memory.readdwordsigned(readposition + 16)
 		section.z = memory.readdwordsigned(readposition + 20)
-		section.next = (bit.band(memory.readdwordunsigned(readposition + 8), 0x00ffffff) - sectionsAddr) / 156 + 1
+		section.next = (bit.band(memory.readdwordunsigned(readposition + 8), 0x00ffffff) - sectionsAddr) / 156 -- + 1
 
 		track[i] = section
 		
@@ -55,7 +55,27 @@ function getTrackSections()
 	return track
 end
 
-track = getTrackSections()
+function convertTrack(track)
+	--convert track single linked list to a array of points (pit lanes are skipped)
+	local newtrack = {}
+	
+	local i = 0
+	local currentTrack = track[0]
+	repeat
+		newtrack[i] = currentTrack
+		currentTrack = track[currentTrack.next]
+		i = i + 1
+	until track[0] == currentTrack
+	
+	track = newtrack
+	return newtrack
+end
+
+trackcount = 0
+track = convertTrack(getTrackSections())
+for index, point in next, track do
+	trackcount = trackcount + 1
+end
 
 --ship 
 oldposx = 0
@@ -93,9 +113,9 @@ while true do
 	--memory.writeword(0x00095814, (9*600+59*10+9)*5) 
 	
 	--read ship position
-	positionx = memory.readdwordsigned(0x001111CC)
-	positiony = memory.readdwordsigned(0x001111D0)
-	positionz = memory.readdwordsigned(0x001111D4)
+	positionx = memory.readdwordsigned(0x001111CC) --0x0011149C (Piranha)
+	positiony = memory.readdwordsigned(0x001111D0) --0x001114A0
+	positionz = memory.readdwordsigned(0x001111D4) --0x001114A4
 	frame = emu.framecount()
 	
 	--find nearest track section
@@ -127,35 +147,21 @@ while true do
 	end 
 	
 	--calculate the difference between player angle and where ship should aim at (track middle section)
-	--this is done for several points, then the average is taken 
-	dist = 0
-	nearestpoint = track[nearestindex]
+	speed = math.sqrt(velocityx*velocityx + velocityy*velocityy + velocityz*velocityz)
+	nearestpoint = track[(nearestindex + 2 + math.floor(speed/130))%trackcount]
 	
-	weight = { 0, 0, 0, 0, 1, 2, 5, 4, 2 }
-	totalweight = 0
+	dx = nearestpoint.x - positionx 
+	dz = nearestpoint.z - positionz 
 	
-	for index, w in next, weight do
+	l = math.sqrt(dx * dx + dz * dz)
 	
-		if w ~= 0 then
-			d = point2LineDistNotAbsolute(nearestpoint.x - positionx, nearestpoint.z - positionz, angle)
-			
-			--reverse the distance if needed
-			d1 = lineLen2Point(nearestpoint.x - positionx, nearestpoint.z - positionz, angle)
-			if(d1 < 0) then
-				d = 9999999 * math.sign(d)
-			end
-			
-			dist = dist + d * w
-			totalweight = totalweight + w
-		end
-		
-		nearestpoint = track[nearestpoint.next]
+	dist = point2LineDistNotAbsolute(dx/l, dz/l, angle) * 1000
+	
+	--reverse the distance if needed
+	d1 = lineLen2Point(dx, dz, angle)
+	if(d1 < 0) then
+		dist = 9999999 * math.sign(dist)
 	end
-	
-	--calculate average
-	dist = dist / totalweight
-	--decrease distance a little bit
-	dist = (math.abs(dist) ^ 0.8) * math.sign(dist)
 	
 	--PID
 	error = dist
@@ -170,7 +176,7 @@ while true do
 	derivative = error - lasterror
 	lasterror = error
 
-	kp = 0.02
+	kp = 0.025
 	ki = 0.00004
 	kd = 0.3
 	gain = 1.3
@@ -182,8 +188,10 @@ while true do
 	gui.text(0, 60, "Y: " .. positiony)
 	gui.text(0, 70, "Z: " .. positionz)
 	gui.text(0, 80, "TRACK: " .. nearestindex)
-	gui.text(0,100, "ANGLE: " .. angle)
+	gui.text(0,100, "ANGLE: " .. angle / math.pi * 180 )
 	gui.text(0,110, "OUTPUT: " .. math.floor(output))
+	gui.text(0,120, "SPEED: " .. speed)
+	
 	
 	--fix: all joypad states must be initialized to nil (instead of false)
 	joy = joypad.get(1)
