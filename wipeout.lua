@@ -1,23 +1,4 @@
 
-function math.sign(x)
-   if x < 0 then
-     return -1
-   elseif x > 0 then
-     return 1
-   else
-     return 0
-   end
-end
-
----calculates distance between a point (x, y) and a line
-function point2LineDistNotAbsolute(x, y, a) 
-	return x * math.sin(a) - y * math.cos(a);
-end
-
-function lineLen2Point(x, y, a) 
-	return x * math.cos(a) + y * math.sin(a);
-end
-
 
 function getTrackSections()
 
@@ -60,14 +41,13 @@ function convertTrack(track)
 	local newtrack = {}
 	
 	local i = 0
-	local currentTrack = track[0]
+	local currentPos = track[0]
 	repeat
-		newtrack[i] = currentTrack
-		currentTrack = track[currentTrack.next]
+		newtrack[i] = currentPos
+		currentPos = track[currentPos.next]
 		i = i + 1
-	until track[0] == currentTrack
+	until track[0] == currentPos
 	
-	track = newtrack
 	return newtrack
 end
 
@@ -77,46 +57,30 @@ for index, point in next, track do
 	trackcount = trackcount + 1
 end
 
---ship 
-oldposx = 0
-oldposy = 0
-oldposz = 0
-
-velocityx = 0
-velocityy = 0
-velocityz = 0
-
 --PID
 error = 0
 lasterror = 0
 integral = 0
 derivative = 0
 
---framerate lock
-framescript = 0
-starttime = os.clock()
-
 while true do
 	
-	--fix: lock framerate at 30 fps
-	elapsed = os.clock() - starttime
-	
-	if ((elapsed - framescript / 30) > 10) then
-		starttime = os.clock()
-	end
-	
-	while elapsed < framescript / 30 do
-		elapsed = os.clock() - starttime
-	end
-	
+
 	--lock remaining lap time to 9:59.9
 	--memory.writeword(0x00095814, (9*600+59*10+9)*5) 
 	
-	--read ship position
+	--read ship info
 	positionx = memory.readdwordsigned(0x001111CC) --0x0011149C (Piranha)
 	positiony = memory.readdwordsigned(0x001111D0) --0x001114A0
 	positionz = memory.readdwordsigned(0x001111D4) --0x001114A4
-	frame = emu.framecount()
+	
+	--speedx = memory.readdwordsigned(0x001111DC) / 200
+	--speedy = memory.readdwordsigned(0x001111E0) / 200
+	--speedz = memory.readdwordsigned(0x001111E4) / 200
+	
+	--thrust = memory.readword(0x00111224)
+	speed = memory.readword(0x00111220)
+	angle = (memory.readwordsigned(0x001111FC) / 2048) * math.pi	
 	
 	--find nearest track section
 	readposition = tracksections
@@ -134,37 +98,17 @@ while true do
 		end	
 	end
 	
-	--calculate ship angle from velocity
-	if positionx ~= oldposx or positiony ~= oldposy or positionz ~= oldposz then
-		velocityx = positionx - oldposx
-		velocityy = positiony - oldposy
-		velocityz = positionz - oldposz
-		angle = math.atan2(velocityz, velocityx)
-		
-		oldposx = positionx
-		oldposy = positiony
-		oldposz = positionz
-	end 
-	
 	--calculate the difference between player angle and where ship should aim at (track middle section)
-	speed = math.sqrt(velocityx*velocityx + velocityy*velocityy + velocityz*velocityz)
-	nearestpoint = track[(nearestindex + 2 + math.floor(speed/130))%trackcount]
-	
-	dx = nearestpoint.x - positionx 
-	dz = nearestpoint.z - positionz 
-	
-	l = math.sqrt(dx * dx + dz * dz)
-	
-	dist = point2LineDistNotAbsolute(dx/l, dz/l, angle) * 1000
-	
-	--reverse the distance if needed
-	d1 = lineLen2Point(dx, dz, angle)
-	if(d1 < 0) then
-		dist = 9999999 * math.sign(dist)
-	end
+	nearestpoint = track[(nearestindex + 3 + math.floor(speed / 6000))%trackcount]
+	targetangle = -math.atan2(nearestpoint.x - positionx, nearestpoint.z - positionz);
+
+	--memory.writedword(0x001110DC, nearestpoint.x); --AI ship
+	--memory.writedword(0x001110E0, nearestpoint.y);
+	--memory.writedword(0x001110E4, nearestpoint.z);
 	
 	--PID
-	error = dist
+	diffangle = math.atan2(math.sin(angle-targetangle), math.cos(angle-targetangle))
+	error = diffangle
 	
 	integral = integral + error
 	if (integral > 10000) then 
@@ -176,10 +120,10 @@ while true do
 	derivative = error - lasterror
 	lasterror = error
 
-	kp = 0.025
+	kp = 0.045
 	ki = 0.00004
 	kd = 0.3
-	gain = 1.3
+	gain = 0.07
 	
 	output = (error * kp + derivative * kd + integral * ki) * gain
 	
@@ -188,33 +132,28 @@ while true do
 	gui.text(0, 60, "Y: " .. positiony)
 	gui.text(0, 70, "Z: " .. positionz)
 	gui.text(0, 80, "TRACK: " .. nearestindex)
-	gui.text(0,100, "ANGLE: " .. angle / math.pi * 180 )
-	gui.text(0,110, "OUTPUT: " .. math.floor(output))
-	gui.text(0,120, "SPEED: " .. speed)
-	
-	
+	gui.text(0,100, "ANGLE: " .. math.floor(angle / math.pi * 180))
+	gui.text(0,110, "DIFFANGLE: " .. math.floor(diffangle / math.pi * 180))
+	gui.text(0,120, "SPEED: " .. math.floor(speed/95))
+
 	--fix: all joypad states must be initialized to nil (instead of false)
 	joy = joypad.get(1)
 	for key,value in pairs(joy) do
 		if not joy[key] then
 			joy[key] = nil
 		end
-	end	
-	
-	--steer ship left or right, using PWM
-	if(output < 0) then
-		output = -output
-		if(frame % 8 <= output) then
-			joy["left"] = 1
-		end
-	else
-		if(frame % 8 <= output) then
-			joy["right"] = 1
-		end	
 	end
-	joypad.set(1, joy)
 	
-	framescript = framescript + 1
+	--steer ship left or right
+	if(output < 0) then
+		joy["left"] = 1	 
+		if (error <-0.25) then joy["l1"] = 1 end
+	else
+		joy["right"] = 1	 
+		if (error > 0.25) then joy["r1"] = 1 end
+	end
+	
+	joypad.set(1, joy)
 	
 	emu.frameadvance()
 end
