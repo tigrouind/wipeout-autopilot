@@ -1,15 +1,11 @@
 # wipeout-autopilot
-A lua script for PSXjin emulator that autopilot player ship in Wipeout 2097 PSX game.
+A lua script for BizHawk emulator that autopilot player ship in Wipeout 2097 PSX game.
 
 ### How to use it :
 
-1. Download PSXjin emulator revision 726 or higher (search for "PSXjin r726")
+1. Download [BizHawk](http://tasvideos.org/BizHawk.html)
 2. Start the game and launch a race. "Feisar" ship has to be selected (see limitations below)
-3. In the emulator: 
-   - Go to "File" > "Lua Scripting" > "New Lua Script Window..."
-   - Click on "Browse..."
-   - Select "wipeout.lua" script
-   - Click on "Run"
+3. Open lua script in emulator. ("Tools" => "Lua Console")
 4. Accelerate the ship using X button and enjoy autopilot.
 
 Note : the script has be to executed when in the race, not before (eg : in the menus).
@@ -20,7 +16,6 @@ If you change the track, you have to stop and re-run the script each time.
 - It only steers the ship left or right. 
 - It does not :
   - accelerate/brake (you have to do it yourself)
-  - use air brakes 
   - use weapons
   - adjust ship pitch (using up down buttons)
   - avoid other AI ships
