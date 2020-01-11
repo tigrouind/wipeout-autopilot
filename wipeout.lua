@@ -46,23 +46,26 @@ local function convertTrack(track)
 	local currentPos = track[0]
 	repeat
 		newtrack[i] = currentPos
-		currentPos = track[currentPos.next]
-		i = i + 1
+		local nextPos = track[currentPos.next]
+
+		--smooth points
+		for m = 0, 0.5, 0.5 do			
+			local mid = {}
+			mid.x = currentPos.x * (1 - m) + nextPos.x * m
+			mid.y = currentPos.y * (1 - m) + nextPos.y * m
+			mid.z = currentPos.z * (1 - m) + nextPos.z * m
+			newtrack[i] = mid		
+			i = i + 1			
+		end
+		
+		currentPos = nextPos
 	until track[0] == currentPos
 	
 	return newtrack
 end
 
-local function trackSize(track)
-	local count = 0
-	for index, point in next, track do
-		count = count + 1
-	end	
-	return count
-end
-
 local track = convertTrack(getTrackSections())
-local trackCount = trackSize(track)
+local trackCount = table.getn(track) + 1 
 
 --PID
 local lasterror = 0
@@ -102,7 +105,7 @@ while true do
 	end
 	
 	--calculate the difference between player angle and where ship should aim at (track middle section)
-	local nearestpoint = track[(nearestindex + 3 + math.floor(speed / 9000))%trackCount]
+	local nearestpoint = track[(nearestindex + (2 + math.floor(speed / 6000)) * 2)%trackCount]
 	local targetangle = -math.atan2(nearestpoint.x - positionx, nearestpoint.z - positionz)
 
 	--memory.write_s32_le(0x001110DC, nearestpoint.x) --AI ship
@@ -125,11 +128,10 @@ while true do
 	lasterror = error
 
 	kp = 0.045
-	ki = 0.00004
-	kd = 0.3
-	gain = 0.07
+	ki = 0.000
+	kd = 0.000
 	
-	output = (error * kp + derivative * kd + integral * ki) * gain
+	output = error * kp + derivative * kd + integral * ki
 	
 	--debugging
 	gui.text(0, 50, "X: " .. positionx)
@@ -148,11 +150,11 @@ while true do
 	
 	--steer ship left or right
 	if (output < 0) then
-		joy["Left"] = 1	 
-		if (error <-0.25) then joy["L1"] = 1 end
+		joy["Left"] = true	 
+		if (error <-0.12) then joy["L2"] = true end
 	else
-		joy["Right"] = 1	 
-		if (error > 0.25) then joy["R1"] = 1 end
+		joy["Right"] = true	 
+		if (error > 0.12) then joy["R2"] = true end
 	end
 	
 	joypad.set(joy, 1)
