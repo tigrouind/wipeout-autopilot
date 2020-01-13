@@ -85,6 +85,7 @@ while true do
 	--local speedy = memory.read_s32_le(0x001111E0) / 200
 	--local speedz = memory.read_s32_le(0x001111E4) / 200
 	
+	--local damage = memory.read_u16_le(0x000A08BC)
 	--local thrust = memory.read_u16_le(0x00111224)
 	local speed = memory.read_u16_le(0x00111220)
 	local angle = (memory.read_s16_le(0x001111FC) / 2048) * math.pi	
