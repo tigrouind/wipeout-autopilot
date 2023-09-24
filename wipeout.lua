@@ -77,9 +77,10 @@ while true do
 	--memory.write_u16_le(0x00095814, (9*600+59*10+9)*5) 
 	
 	--read ship info
-	local positionx = memory.read_s32_le(0x001111CC) --0x0011149C (Piranha)
-	local positiony = memory.read_s32_le(0x001111D0) --0x001114A0
-	local positionz = memory.read_s32_le(0x001111D4) --0x001114A4
+	local position = {}
+	position.x = memory.read_s32_le(0x001111CC) --0x0011149C (Piranha)
+	position.y = memory.read_s32_le(0x001111D0) --0x001114A0
+	position.z = memory.read_s32_le(0x001111D4) --0x001114A4
 	
 	--local speedx = memory.read_s32_le(0x001111DC) / 200
 	--local speedy = memory.read_s32_le(0x001111E0) / 200
@@ -94,11 +95,8 @@ while true do
 	local smallestdist = 999999999
 	local nearestindex = 1
 	for index, point in next, track do
-		local dx = positionx - point.x
-		local dy = positiony - point.y
-		local dz = positionz - point.z
-	
-		local distance = dx * dx + dy * dy + dz * dz
+		local d = { x = position.x - point.x, y = position.y - point.y, z = position.z - point.z }		
+		local distance = d.x * d.x + d.y * d.y + d.z * d.z
 		if distance < smallestdist then
 			smallestdist = distance
 			nearestindex = index
@@ -107,7 +105,7 @@ while true do
 	
 	--calculate the difference between player angle and where ship should aim at (track middle section)
 	local nearestpoint = track[(nearestindex + (2 + math.floor(speed / 6000)) * 2)%trackCount]
-	local targetangle = -math.atan(nearestpoint.x - positionx, nearestpoint.z - positionz)
+	local targetangle = -math.atan(nearestpoint.x - position.x, nearestpoint.z - position.z)
 
 	--memory.write_s32_le(0x001110DC, nearestpoint.x) --AI ship
 	--memory.write_s32_le(0x001110E0, nearestpoint.y)
@@ -135,9 +133,9 @@ while true do
 	output = error * kp + derivative * kd + integral * ki
 	
 	--debugging
-	gui.text(0, 50, "X: " .. positionx)
-	gui.text(0, 70, "Y: " .. positiony)
-	gui.text(0, 90, "Z: " .. positionz)
+	gui.text(0, 50, "X: " .. position.x)
+	gui.text(0, 70, "Y: " .. position.y)
+	gui.text(0, 90, "Z: " .. position.z)
 	gui.text(0,110, "TRACK: " .. nearestindex)
 	gui.text(0,130, "ANGLE: " .. math.floor(angle / math.pi * 180))
 	gui.text(0,150, "DIFFANGLE: " .. math.floor(diffangle / math.pi * 180))
