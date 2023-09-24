@@ -27,7 +27,7 @@ local function getTrackSections()
 		section.x = memory.read_s32_le(readposition + 12)
 		section.y = memory.read_s32_le(readposition + 16)
 		section.z = memory.read_s32_le(readposition + 20)
-		section.next = (bit.band(memory.read_u32_le(readposition + 8), 0x00ffffff) - sectionsAddr) / 156 -- + 1
+		section.next = ((memory.read_u32_le(readposition + 8) & 0x00ffffff) - sectionsAddr) / 156 -- + 1
 
 		track[i] = section
 		
@@ -65,7 +65,7 @@ local function convertTrack(track)
 end
 
 local track = convertTrack(getTrackSections())
-local trackCount = table.getn(track) + 1 
+local trackCount = (#track) + 1 
 
 --PID
 local lasterror = 0
@@ -107,7 +107,7 @@ while true do
 	
 	--calculate the difference between player angle and where ship should aim at (track middle section)
 	local nearestpoint = track[(nearestindex + (2 + math.floor(speed / 6000)) * 2)%trackCount]
-	local targetangle = -math.atan2(nearestpoint.x - positionx, nearestpoint.z - positionz)
+	local targetangle = -math.atan(nearestpoint.x - positionx, nearestpoint.z - positionz)
 
 	--memory.write_s32_le(0x001110DC, nearestpoint.x) --AI ship
 	--memory.write_s32_le(0x001110E0, nearestpoint.y)
@@ -115,7 +115,7 @@ while true do
 	--memory.write_s16_le(0x001111FC, targetangle / math.pi * 2048)
 	
 	--PID
-	local diffangle = math.atan2(math.sin(angle - targetangle), math.cos(angle - targetangle))
+	local diffangle = math.atan(math.sin(angle - targetangle), math.cos(angle - targetangle))
 	local error = diffangle
 	
 	integral = integral + error
@@ -144,17 +144,14 @@ while true do
 	gui.text(0,170, "SPEED: " .. math.floor(speed/95))
 
 	--reset joypad state
-	local joy = joypad.get(1)
-	for key,value in pairs(joy) do
-		joy[key] = ''
-	end
+	local joy = {}
 	
 	--steer ship left or right
 	if (output < 0) then
-		joy["Left"] = true	 
+		joy["D-Pad Left"] = true	 
 		if (error <-0.12) then joy["L2"] = true end
 	else
-		joy["Right"] = true	 
+		joy["D-Pad Right"] = true	 
 		if (error > 0.12) then joy["R2"] = true end
 	end
 	
